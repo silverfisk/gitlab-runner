@@ -199,8 +199,15 @@ Resources:
           # Create a default cache directory for the cache-runner
           mkdir /cache
 
-          # Print out the public IP, good for debuggning
-          curl ipinfo.io/ip
+          # Print out the public IP, good for debuggning (put it in background in case we cannot reach ipinfo.ip)
+          curl ipinfo.io/ip &
+
+          # Generate daemon.json for docker so we don't use Google DNS
+          NS1=$(awk '($1 = /nameserver/) {print $2}' /run/systemd/resolve/resolv.conf | head -1)  # Lookup our first DNS
+          NS2=$(awk '($1 = /nameserver/) {print $2}' /run/systemd/resolve/resolv.conf | head -1)  # Lookup our second DNS
+          mkdir -p /etc/docker
+          (echo -ne '{\n\t"dns": '; echo -n '["' ; echo -n "$NS1" ; echo -n '", "' ; echo -n "$NS2" ; echo -ne '"]\n}' )> /etc/docker/daemon.json # Akward but it works...
+          service docker restart
 
           # Register a vanilla-runner. This runner is suitable e.g. for all other containers not needing docker commands.
           gitlab-runner register -n -u ${GitlabServer} -r ${GitLabRegistrationToken} --name ${RunnerName}-vanilla --run-untagged --tag-list "vanilla" --locked=false --executor docker --docker-image "alpine:latest" 
